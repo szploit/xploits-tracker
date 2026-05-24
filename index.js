@@ -56,11 +56,11 @@ function buildEmbed(data, changeType) {
     color = 0xe63946
     title = 'An exploit is no longer working!'
     description = `**${data.title}** is no longer updated for the current Roblox version!`
-  } else if (isDetected) {
-    color = 0xfbbf24
-    title = 'An exploit has been flagged!'
-    description = `**${data.title}** is working but may be detected on banwaves!`
-  } else {
+ } else if (isDetected) {
+    color = 0x4ade80
+    title = 'An exploit has been updated!'
+    description = `**${data.title}** is currently updated and undetected but may be detected on banwaves!`
+} else {
     color = 0x4ade80
     title = 'An exploit update has been detected!'
     description = `**${data.title}** has been updated for **${data.platform}**!`
