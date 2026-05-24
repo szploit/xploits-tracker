@@ -145,6 +145,26 @@ app.get('/status/:name', (req, res) => {
   })
 })
 
+app.get('/force/:name', async (req, res) => {
+  const row = getExecutor(req.params.name.toLowerCase())
+  if (!row) return res.status(404).json({ error: 'Not found' })
+
+  const channel = await client.channels.fetch(UPDATES_CHANNEL_ID).catch(() => null)
+  if (!channel) return res.status(500).json({ error: 'Channel not found' })
+
+  const fakeData = {
+    title: row.name,
+    version: row.version,
+    detected: row.detected === 1,
+    updateStatus: row.update_status === 1,
+    updatedDate: row.updated_date,
+    platform: row.platform,
+  }
+
+  await channel.send({ embeds: [buildEmbed(fakeData, 'Force test post.')] })
+  res.json({ ok: true })
+})
+
 app.get('/status', (req, res) => {
   const rows = getAllExecutors()
   res.json(rows.map(row => ({
