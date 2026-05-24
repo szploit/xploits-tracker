@@ -49,23 +49,20 @@ async function fetch_executor(name) {
 function buildEmbed(data, changeType) {
   const isUp = !data.detected && data.updateStatus
   const isDetected = data.detected
-  const isOutdated = !data.updateStatus && !data.detected
 
-  let color, statusText, emoji
-  if (isUp) { color = 0x4ade80; statusText = 'Updated & Working'; emoji = '🟢' }
-  else if (isDetected) { color = 0xe63946; statusText = 'Detected'; emoji = '🔴' }
-  else { color = 0xfbbf24; statusText = 'Outdated'; emoji = '🟡' }
+  let color, title
+  if (isUp) { color = 0x4ade80; title = 'An exploit update has been detected!' }
+  else if (isDetected) { color = 0xe63946; title = 'An exploit has been detected!' }
+  else { color = 0xfbbf24; title = 'An exploit is outdated!' }
 
   const embed = new EmbedBuilder()
     .setColor(color)
-    .setTitle(`${emoji} ${data.title} — ${statusText}`)
-    .setDescription(changeType)
+    .setTitle(title)
+    .setDescription(`**${data.title}** has been ${isUp ? `updated for **${data.platform}**!` : isDetected ? 'detected!' : 'marked as outdated!'}`)
     .addFields(
-      { name: 'Version', value: data.version ?? 'Unknown', inline: true },
-      { name: 'Platform', value: data.platform ?? 'Unknown', inline: true },
-      { name: 'Last Updated', value: data.updatedDate ?? 'Unknown', inline: false },
+      { name: 'New Version:', value: `\`${data.version ?? 'Unknown'}\``, inline: false },
+      { name: 'Date:', value: data.updatedDate ?? 'Unknown', inline: false },
     )
-    .setFooter({ text: 'Powered by WEAO • exploit-tracker' })
     .setTimestamp()
 
   return embed
