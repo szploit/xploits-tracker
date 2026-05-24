@@ -69,13 +69,14 @@ function buildEmbed(data, changeType) {
   const embed = new EmbedBuilder()
     .setColor(color)
     .setTitle(title)
+    .setThumbnail('https://xploits.xyz/X.png')
     .setDescription(description)
     .addFields(
       { name: 'New Version:', value: `\`${data.version ?? 'Unknown'}\``, inline: false },
       { name: 'Date:', value: data.updatedDate ?? 'Unknown', inline: false },
     )
     .setTimestamp()
-
+  
   return embed
 }
 
