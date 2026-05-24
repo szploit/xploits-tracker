@@ -1,37 +1,130 @@
-const { Client, GatewayIntentBits } = require('discord.js')
+const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js')
 const express = require('express')
 const cors = require('cors')
-const { parseMessage } = require('./parser')
-const { upsertExecutor, getExecutor, getAllExecutors } = require('./db')
+const { getExecutor, upsertExecutor, getAllExecutors } = require('./db')
 
 const BOT_TOKEN = process.env.BOT_TOKEN
 const UPDATES_CHANNEL_ID = '1494018215599144991'
 const PORT = process.env.PORT || 3000
+const POLL_INTERVAL_MS = 3 * 60 * 1000
 
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-  ],
-})
+const WEAO_USER_AGENT = 'WEAO-3PService'
+
+const TRACKED = [
+  'Volt',
+  'Madium',
+  'Synapse Z',
+  'Seliware',
+  'Potassium',
+  'Velocity',
+  'Xeno',
+  'Solara',
+  'SirHurt',
+  'Wave',
+]
+
+const client = new Client({ intents: [GatewayIntentBits.Guilds] })
 
 client.once('ready', () => {
   console.log(`Bot ready: ${client.user.tag}`)
+  pollAll() 
+  setInterval(pollAll, POLL_INTERVAL_MS)
 })
 
-client.on('messageCreate', (message) => {
-  console.log(`[msg] channel: ${message.channelId} | author bot: ${message.author.bot} | content: ${message.content.slice(0, 50)}`)
-  
-  if (message.channelId !== UPDATES_CHANNEL_ID) return
-  if (message.author.bot === false) return
+async function fetch_executor(name) {
+  try {
+    const encoded = encodeURIComponent(name)
+    const res = await fetch(`https://weao.xyz/api/status/exploits/${encoded}`, {
+      headers: { 'User-Agent': WEAO_USER_AGENT },
+    })
+    if (res.status === 429) { console.warn(`[weao] rate limited for ${name}`); return null }
+    if (!res.ok) { console.warn(`[weao] ${name} returned ${res.status}`); return null }
+    return await res.json()
+  } catch (err) {
+    console.error(`[weao] fetch error for ${name}:`, err.message)
+    return null
+  }
+}
 
-  const parsed = parseMessage(message.content)
-  console.log(`[parsed]`, parsed)
-  
-  if (!parsed) return
-  upsertExecutor(parsed)
-})
+function buildEmbed(data, changeType) {
+  const isUp = !data.detected && data.updateStatus
+  const isDetected = data.detected
+  const isOutdated = !data.updateStatus && !data.detected
+
+  let color, statusText, emoji
+  if (isUp) { color = 0x4ade80; statusText = 'Updated & Working'; emoji = '🟢' }
+  else if (isDetected) { color = 0xe63946; statusText = 'Detected'; emoji = '🔴' }
+  else { color = 0xfbbf24; statusText = 'Outdated'; emoji = '🟡' }
+
+  const embed = new EmbedBuilder()
+    .setColor(color)
+    .setTitle(`${emoji} ${data.title} — ${statusText}`)
+    .setDescription(changeType)
+    .addFields(
+      { name: 'Version', value: data.version ?? 'Unknown', inline: true },
+      { name: 'Platform', value: data.platform ?? 'Unknown', inline: true },
+      { name: 'Last Updated', value: data.updatedDate ?? 'Unknown', inline: false },
+    )
+    .setFooter({ text: 'Powered by WEAO • exploit-tracker' })
+    .setTimestamp()
+
+  return embed
+}
+
+async function pollAll() {
+  console.log(`[poll] Checking ${TRACKED.length} executors...`)
+  const channel = await client.channels.fetch(UPDATES_CHANNEL_ID).catch(() => null)
+
+  for (const name of TRACKED) {
+    const data = await fetch_executor(name)
+    if (!data || !data.title) continue
+
+    const prev = getExecutor(data.title.toLowerCase())
+
+    const current = {
+      name: data.title.toLowerCase(),
+      version: data.version ?? null,
+      detected: data.detected ? 1 : 0,
+      update_status: data.updateStatus ? 1 : 0,
+      updated_date: data.updatedDate ?? null,
+      platform: data.platform ?? null,
+      last_checked: Date.now(),
+    }
+
+    upsertExecutor(current)
+
+    if (prev &&
+        prev.version === current.version &&
+        prev.detected === current.detected &&
+        prev.update_status === current.update_status
+    ) continue
+
+    let changeType
+    if (!prev) {
+      changeType = 'Now being tracked.'
+    } else if (prev.detected !== current.detected && current.detected === 0) {
+      changeType = `${data.title} is no longer detected!`
+    } else if (prev.detected !== current.detected && current.detected === 1) {
+      changeType = `${data.title} has been detected!`
+    } else if (prev.version !== current.version) {
+      changeType = `Updated from \`${prev.version}\` → \`${current.version}\``
+    } else if (prev.update_status !== current.update_status) {
+      changeType = current.update_status ? `${data.title} is now updated!` : `${data.title} is no longer updated for the current Roblox version.`
+    } else {
+      changeType = 'Status changed.'
+    }
+
+    console.log(`[tracker] ${data.title}: ${changeType}`)
+
+    if (channel) {
+      await channel.send({ embeds: [buildEmbed(data, changeType)] }).catch(console.error)
+    }
+
+    await new Promise(r => setTimeout(r, 1500))
+  }
+
+  console.log(`[poll] Done.`)
+}
 
 client.login(BOT_TOKEN)
 
@@ -44,14 +137,25 @@ app.get('/status/:name', (req, res) => {
   res.json({
     name: row.name,
     version: row.version,
-    status: row.status,     
-    changelog: row.changelog,
-    last_updated: row.last_updated,
+    detected: row.detected === 1,
+    updateStatus: row.update_status === 1,
+    updatedDate: row.updated_date,
+    platform: row.platform,
+    last_checked: row.last_checked,
   })
 })
 
 app.get('/status', (req, res) => {
-  res.json(getAllExecutors())
+  const rows = getAllExecutors()
+  res.json(rows.map(row => ({
+    name: row.name,
+    version: row.version,
+    detected: row.detected === 1,
+    updateStatus: row.update_status === 1,
+    updatedDate: row.updated_date,
+    platform: row.platform,
+    last_checked: row.last_checked,
+  })))
 })
 
 app.listen(PORT, () => console.log(`API listening on port ${PORT}`))
