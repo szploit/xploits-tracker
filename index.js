@@ -21,14 +21,16 @@ client.once('ready', () => {
 })
 
 client.on('messageCreate', (message) => {
+  console.log(`[msg] channel: ${message.channelId} | author bot: ${message.author.bot} | content: ${message.content.slice(0, 50)}`)
+  
   if (message.channelId !== UPDATES_CHANNEL_ID) return
   if (message.author.bot === false) return
 
   const parsed = parseMessage(message.content)
+  console.log(`[parsed]`, parsed)
+  
   if (!parsed) return
-
   upsertExecutor(parsed)
-  console.log(`[tracker] Updated ${parsed.name} → ${parsed.status} ${parsed.version ?? ''}`)
 })
 
 client.login(BOT_TOKEN)
