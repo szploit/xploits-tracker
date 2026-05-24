@@ -47,18 +47,29 @@ async function fetch_executor(name) {
 }
 
 function buildEmbed(data, changeType) {
+  const isDown = !data.updateStatus
+  const isDetected = data.detected && data.updateStatus
   const isUp = !data.detected && data.updateStatus
-  const isDetected = data.detected
 
-  let color, title
-  if (isUp) { color = 0x4ade80; title = 'An exploit update has been detected!' }
-  else if (isDetected) { color = 0xe63946; title = 'An exploit has been detected!' }
-  else { color = 0xfbbf24; title = 'An exploit is outdated!' }
+  let color, title, description
+  if (isDown) {
+    color = 0xe63946
+    title = 'An exploit is no longer working!'
+    description = `**${data.title}** is no longer updated for the current Roblox version!`
+  } else if (isDetected) {
+    color = 0xfbbf24
+    title = 'An exploit has been flagged!'
+    description = `**${data.title}** is working but may be detected on banwaves!`
+  } else {
+    color = 0x4ade80
+    title = 'An exploit update has been detected!'
+    description = `**${data.title}** has been updated for **${data.platform}**!`
+  }
 
   const embed = new EmbedBuilder()
     .setColor(color)
     .setTitle(title)
-    .setDescription(`**${data.title}** has been ${isUp ? `updated for **${data.platform}**!` : isDetected ? 'detected!' : 'marked as outdated!'}`)
+    .setDescription(description)
     .addFields(
       { name: 'New Version:', value: `\`${data.version ?? 'Unknown'}\``, inline: false },
       { name: 'Date:', value: data.updatedDate ?? 'Unknown', inline: false },
