@@ -27,6 +27,22 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] })
 
 client.once('ready', () => {
   console.log(`Bot ready: ${client.user.tag}`)
+
+  const channel = await client.channels.fetch('1508524784718184558').catch(() => null)
+  const embed = new EmbedBuilder()
+  .setColor(0xe63946)
+  .setThumbnail('https://xploits.xyz/X.png')
+  .setTitle('Xploits')
+  .setDescription('About Xploits\nXploits - Best Roblox executor tracker')
+  .addFields(
+        { name: 'Our websites:', value: 'https://xploits.xyz', inline: false },
+        { name: 'Key system:', value: 'https://xploits.xyz/key-system', inline: false },
+        { name: 'Moreira:', value: 'https://xploits.xyz/moreira', inline: false },
+        { name: 'Information:', value: 'Roblox exploit tracker\nExternal useful websites\nExternal useful tools\nTutorials on making cheats for games', inline: false },
+        { name: 'Roblox Deployment Downloader:', value: 'We fork latte\'s RDD\nDowngrade roblox versions:\nhttps://xploits.xyz/rdd', inline: false },
+      )
+  .setTimestamp()
+  await channel.send({ embeds: [embed] }).catch(console.error)
   pollAll() 
   setInterval(pollAll, POLL_INTERVAL_MS)
 })
